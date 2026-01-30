@@ -74,6 +74,11 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-xl);
     padding: var(--spacing-5);
+    margin-bottom: var(--spacing-4);
+}
+
+.module-section:last-child {
+    margin-bottom: 0;
 }
 
 /* === 右側資訊欄 === */

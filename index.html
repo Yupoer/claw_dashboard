@@ -41,6 +41,39 @@
     <!-- 模態框容器 -->
     <div id="modal-root"></div>
 
+    <!-- Firebase SDK (Modular v10.x via CDN) -->
+    <script type="module">
+        // Firebase App & Database Imports
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+        import { getDatabase, ref, onValue, query, limitToLast } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js';
+
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAuekdRS3pPZTqhefpzdhf-go9utO6_Bzc",
+            authDomain: "noma-ee53e.firebaseapp.com",
+            databaseURL: "https://noma-ee53e-default-rtdb.firebaseio.com",
+            projectId: "noma-ee53e",
+            storageBucket: "noma-ee53e.firebasestorage.app",
+            messagingSenderId: "951167682309",
+            appId: "1:951167682309:web:9c48c66d7989ed5655596c"
+        };
+
+        // Initialize Firebase
+        const firebaseApp = initializeApp(firebaseConfig);
+        const database = getDatabase(firebaseApp);
+
+        // Expose Firebase utilities to global scope for modules
+        window.FirebaseDB = {
+            database,
+            ref,
+            onValue,
+            query,
+            limitToLast
+        };
+
+        console.log('🔥 Firebase initialized successfully');
+    </script>
+
     <!-- 核心模塊系統 -->
     <script type="module" src="js/core/EventBus.js"></script>
     <script type="module" src="js/core/ModuleRegistry.js"></script>
@@ -48,7 +81,6 @@
 
     <!-- API 層 -->
     <script type="module" src="js/api/ApiClient.js"></script>
-    <script type="module" src="js/api/MockDataProvider.js"></script>
 
     <!-- 主程式入口 -->
     <script type="module" src="js/main.js"></script>

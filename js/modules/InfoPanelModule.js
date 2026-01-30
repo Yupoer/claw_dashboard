@@ -1,7 +1,7 @@
 /**
  * InfoPanelModule - 右側資訊欄模塊
  * 
- * 顯示 API 餘額監控和模型狀態
+ * 顯示實時配額監控和 Agent 狀態
  */
 
 import EventBus, { Events } from '../core/EventBus.js';
@@ -15,25 +15,20 @@ class InfoPanelModule {
     }
 
     async init() {
+        // 監聽 agent 狀態變化（包含配額信息）
         this.unsubscribers.push(
-            StateManager.subscribe('api', () => this.updateBalances())
+            StateManager.subscribe('agent', () => this.update())
         );
 
+        // 監聽日誌變化
         this.unsubscribers.push(
-            StateManager.subscribe('models', () => this.updateModels())
-        );
-
-        // 監控餘額警告
-        this.unsubscribers.push(
-            StateManager.subscribe('api.balances', (balances) => {
-                this.checkBalanceWarnings(balances);
-            })
+            StateManager.subscribe('logs', () => this.updateLogs())
         );
     }
 
     render() {
-        const balances = StateManager.get('api.balances', []);
-        const models = StateManager.get('models', {});
+        const agent = StateManager.get('agent', {});
+        const logs = StateManager.get('logs', []);
         const lastUpdated = StateManager.get('api.lastUpdated');
 
         return `
@@ -48,16 +43,25 @@ class InfoPanelModule {
                 </div>
                 
                 <div class="info-panel__content">
-                    <!-- API 餘額監控 -->
+                    <!-- Agent 狀態卡片 -->
                     <div class="info-card">
                         <div class="info-card__header">
-                            <i data-lucide="wallet" width="18" height="18"></i>
-                            <span>API 餘額</span>
+                            <i data-lucide="activity" width="18" height="18"></i>
+                            <span>Agent 狀態</span>
                         </div>
-                        <div class="info-card__body" id="api-balances">
-                            ${balances.length > 0
-                ? balances.map(b => this.renderBalanceItem(b)).join('')
-                : '<p class="text-muted">載入中...</p>'}
+                        <div class="info-card__body" id="agent-status-display">
+                            ${this.renderAgentStatus(agent)}
+                        </div>
+                    </div>
+
+                    <!-- 實時配額監控 -->
+                    <div class="info-card">
+                        <div class="info-card__header">
+                            <i data-lucide="gauge" width="18" height="18"></i>
+                            <span>配額監控</span>
+                        </div>
+                        <div class="info-card__body" id="quota-monitor">
+                            ${this.renderQuotaMonitor(agent)}
                         </div>
                     </div>
 
@@ -65,12 +69,21 @@ class InfoPanelModule {
                     <div class="info-card">
                         <div class="info-card__header">
                             <i data-lucide="cpu" width="18" height="18"></i>
-                            <span>模型狀態</span>
+                            <span>當前模型</span>
                         </div>
                         <div class="info-card__body" id="model-status">
-                            ${models.current
-                ? this.renderModelStatus(models)
-                : '<p class="text-muted">載入中...</p>'}
+                            ${this.renderModelStatus(agent)}
+                        </div>
+                    </div>
+
+                    <!-- 最近日誌 -->
+                    <div class="info-card">
+                        <div class="info-card__header">
+                            <i data-lucide="scroll-text" width="18" height="18"></i>
+                            <span>最近日誌</span>
+                        </div>
+                        <div class="info-card__body" id="recent-logs">
+                            ${this.renderRecentLogs(logs)}
                         </div>
                     </div>
 
@@ -82,10 +95,6 @@ class InfoPanelModule {
                         </div>
                         <div class="info-card__body">
                             <div class="quick-actions">
-                                <button class="btn btn--ghost btn--small" id="switch-model-btn">
-                                    <i data-lucide="refresh-cw" width="14" height="14"></i>
-                                    切換模型
-                                </button>
                                 <button class="btn btn--ghost btn--small" id="export-data-btn">
                                     <i data-lucide="download" width="14" height="14"></i>
                                     匯出數據
@@ -98,85 +107,143 @@ class InfoPanelModule {
         `;
     }
 
-    renderBalanceItem(balance) {
-        const percentage = (balance.remaining / balance.total) * 100;
-        const isWarning = percentage <= 20;
-        const isCritical = percentage <= 10;
-
-        let progressClass = '';
-        if (isCritical) progressClass = 'progress--danger';
-        else if (isWarning) progressClass = 'progress--warning';
-
-        return `
-            <div class="balance-item ${isCritical ? 'animate-alert' : ''}">
-                <div class="balance-item__header">
-                    <span class="balance-item__provider">${balance.provider}</span>
-                    <span class="balance-item__amount ${isCritical ? 'text-danger' : isWarning ? 'text-warning' : ''}">
-                        $${balance.remaining.toFixed(2)}
-                    </span>
-                </div>
-                <div class="progress ${progressClass}">
-                    <div class="progress__bar" style="width: ${percentage}%"></div>
-                </div>
-                <div class="balance-item__footer">
-                    <span class="text-muted">剩餘: $${balance.total.toFixed(2)}</span>
-                    <span class="${isCritical ? 'text-danger' : isWarning ? 'text-warning' : 'text-muted'}">
-                        預估 ${balance.estimatedDaysLeft} 天
-                    </span>
-                </div>
-            </div>
-        `;
-    }
-
-    renderModelStatus(models) {
-        const { current, fallback } = models;
+    /**
+     * 渲染 Agent 狀態
+     */
+    renderAgentStatus(agent) {
+        const displayState = agent.displayState || '⚪ UNKNOWN';
+        const isOnline = agent.isOnline !== false;
+        const currentTask = agent.currentTask?.title || '無任務';
 
         return `
-            <div class="model-status">
-                <!-- 當前模型 -->
-                <div class="model-item model-item--current">
-                    <div class="model-item__indicator">
-                        <span class="status-dot status-dot--${current.status === 'active' ? 'active' : 'warning'}"></span>
-                    </div>
-                    <div class="model-item__info">
-                        <span class="model-item__label">當前使用</span>
-                        <span class="model-item__name">${current.name}</span>
-                        <span class="model-item__provider text-muted">${current.provider}</span>
-                    </div>
-                    <span class="badge ${current.status === 'active' ? 'badge--success' : 'badge--warning'}">
-                        ${this.getStatusText(current.status)}
+            <div class="agent-status">
+                <div class="agent-status__indicator">
+                    <span class="status-badge ${isOnline ? 'status-badge--online' : 'status-badge--offline'}">
+                        ${displayState}
                     </span>
                 </div>
-
-                ${fallback ? `
-                <!-- 備用模型 -->
-                <div class="model-item model-item--fallback">
-                    <div class="model-item__indicator">
-                        <span class="status-dot ${fallback.status === 'ready' ? '' : 'status-dot--warning'}"></span>
-                    </div>
-                    <div class="model-item__info">
-                        <span class="model-item__label">備用模型</span>
-                        <span class="model-item__name">${fallback.name}</span>
-                        <span class="model-item__provider text-muted">${fallback.provider}</span>
-                    </div>
-                    <span class="badge ${fallback.status === 'ready' ? '' : 'badge--warning'}">
-                        ${fallback.status === 'ready' ? '待命' : '不可用'}
-                    </span>
+                <div class="agent-status__task">
+                    <span class="text-muted">當前任務:</span>
+                    <span class="task-name">${currentTask}</span>
                 </div>
+                ${agent.lastHeartbeat ? `
+                    <div class="agent-status__heartbeat text-muted" style="font-size: var(--text-xs)">
+                        最後心跳: ${this.formatTimestamp(agent.lastHeartbeat)}
+                    </div>
                 ` : ''}
             </div>
         `;
     }
 
-    getStatusText(status) {
-        switch (status) {
-            case 'active': return '運行中';
-            case 'rate-limited': return '限速中';
-            case 'error': return '錯誤';
-            default: return status;
+    /**
+     * 渲染配額監控（替代原本的 Switch Model 按鈕區域）
+     */
+    renderQuotaMonitor(agent) {
+        const tokenUsage = agent.tokenUsage || 0;
+        const quotaRemaining = agent.quotaRemaining ?? 1; // 0~1 的比例
+        const percentage = Math.round(quotaRemaining * 100);
+
+        // 確定警告等級
+        let badgeClass = '';
+        let badgeText = '';
+        let progressClass = '';
+
+        if (percentage < 20) {
+            badgeClass = 'badge--danger';
+            badgeText = '⚠️ 危險';
+            progressClass = 'progress--danger';
+        } else if (percentage < 30) {
+            badgeClass = 'badge--warning';
+            badgeText = '⚠️ 警告';
+            progressClass = 'progress--warning';
+        } else {
+            badgeClass = 'badge--success';
+            badgeText = '✓ 正常';
+            progressClass = '';
         }
+
+        return `
+            <div class="quota-monitor">
+                <div class="quota-monitor__header">
+                    <span class="quota-monitor__label">Token 使用量</span>
+                    <span class="quota-monitor__value text-mono">${this.formatNumber(tokenUsage)}</span>
+                </div>
+                
+                <div class="quota-monitor__bar">
+                    <div class="quota-monitor__remaining">
+                        <span>剩餘配額</span>
+                        <span class="badge ${badgeClass}">${badgeText}</span>
+                    </div>
+                    <div class="progress ${progressClass}">
+                        <div class="progress__bar" style="width: ${percentage}%"></div>
+                    </div>
+                    <div class="quota-monitor__percentage">
+                        <span class="text-mono ${percentage < 20 ? 'text-danger' : percentage < 30 ? 'text-warning' : ''}">${percentage}%</span>
+                    </div>
+                </div>
+            </div>
+        `;
     }
 
+    /**
+     * 渲染模型狀態
+     */
+    renderModelStatus(agent) {
+        const model = agent.model || 'Unknown';
+        const isOnline = agent.isOnline !== false;
+
+        return `
+            <div class="model-status">
+                <div class="model-item model-item--current">
+                    <div class="model-item__indicator">
+                        <span class="status-dot ${isOnline ? 'status-dot--active' : 'status-dot--warning'}"></span>
+                    </div>
+                    <div class="model-item__info">
+                        <span class="model-item__label">當前使用</span>
+                        <span class="model-item__name">${model}</span>
+                        <span class="model-item__provider text-muted">Google</span>
+                    </div>
+                    <span class="badge ${isOnline ? 'badge--success' : 'badge--danger'}">
+                        ${isOnline ? '運行中' : '離線'}
+                    </span>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * 渲染最近日誌
+     */
+    renderRecentLogs(logs) {
+        if (!logs || logs.length === 0) {
+            return '<p class="text-muted">暫無日誌</p>';
+        }
+
+        // 只顯示最近 5 條
+        const recentLogs = logs.slice(0, 5);
+
+        return `
+            <div class="recent-logs">
+                ${recentLogs.map(log => `
+                    <div class="log-item">
+                        <span class="log-item__time text-muted text-mono">
+                            ${this.formatTimestamp(log.timestamp)}
+                        </span>
+                        <span class="log-item__message">${log.message || ''}</span>
+                    </div>
+                `).join('')}
+                ${logs.length > 5 ? `
+                    <div class="log-item__more text-muted">
+                        還有 ${logs.length - 5} 條日誌...
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    /**
+     * 格式化時間字符串
+     */
     formatTime(dateString) {
         const date = new Date(dateString);
         return date.toLocaleTimeString('zh-TW', {
@@ -185,36 +252,25 @@ class InfoPanelModule {
         });
     }
 
-    checkBalanceWarnings(balances) {
-        const config = StateManager.get('config', {});
-        const warningThreshold = config.balanceWarningThreshold || 20;
-        const criticalThreshold = config.balanceCriticalThreshold || 10;
-
-        balances.forEach(balance => {
-            const percentage = (balance.remaining / balance.total) * 100;
-
-            if (percentage <= criticalThreshold) {
-                EventBus.emit(Events.API_BALANCE_WARNING, {
-                    provider: balance.provider,
-                    level: 'critical',
-                    remaining: balance.remaining,
-                    percentage
-                });
-
-                EventBus.emit(Events.NOTIFICATION_SHOW, {
-                    type: 'error',
-                    message: `警告：${balance.provider} 餘額不足 10%！`,
-                    persistent: true
-                });
-            } else if (percentage <= warningThreshold) {
-                EventBus.emit(Events.API_BALANCE_WARNING, {
-                    provider: balance.provider,
-                    level: 'warning',
-                    remaining: balance.remaining,
-                    percentage
-                });
-            }
+    /**
+     * 格式化時間戳
+     */
+    formatTimestamp(timestamp) {
+        if (!timestamp) return '--:--';
+        const date = new Date(timestamp);
+        return date.toLocaleTimeString('zh-TW', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
         });
+    }
+
+    /**
+     * 格式化數字（加上千分位）
+     */
+    formatNumber(num) {
+        if (num === undefined || num === null) return '0';
+        return num.toLocaleString('zh-TW');
     }
 
     afterRender() {
@@ -229,14 +285,6 @@ class InfoPanelModule {
     }
 
     bindEvents() {
-        // 切換模型按鈕
-        const switchBtn = document.getElementById('switch-model-btn');
-        if (switchBtn) {
-            switchBtn.addEventListener('click', () => {
-                EventBus.emit('ui:show-model-switch');
-            });
-        }
-
         // 匯出數據按鈕
         const exportBtn = document.getElementById('export-data-btn');
         if (exportBtn) {
@@ -251,10 +299,7 @@ class InfoPanelModule {
         const exportData = {
             exportedAt: new Date().toISOString(),
             agent: state.agent,
-            tasks: state.tasks,
-            learning: state.learning,
-            api: state.api,
-            models: state.models
+            logs: state.logs
         };
 
         const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
@@ -271,29 +316,66 @@ class InfoPanelModule {
         });
     }
 
-    updateBalances() {
-        const container = document.getElementById('api-balances');
-        if (!container) return;
-
-        const balances = StateManager.get('api.balances', []);
-        container.innerHTML = balances.length > 0
-            ? balances.map(b => this.renderBalanceItem(b)).join('')
-            : '<p class="text-muted">載入中...</p>';
-    }
-
-    updateModels() {
-        const container = document.getElementById('model-status');
-        if (!container) return;
-
-        const models = StateManager.get('models', {});
-        container.innerHTML = models.current
-            ? this.renderModelStatus(models)
-            : '<p class="text-muted">載入中...</p>';
-    }
-
+    /**
+     * 更新整個面板
+     */
     update() {
-        this.updateBalances();
-        this.updateModels();
+        const agentStatusDisplay = document.getElementById('agent-status-display');
+        const quotaMonitor = document.getElementById('quota-monitor');
+        const modelStatus = document.getElementById('model-status');
+
+        const agent = StateManager.get('agent', {});
+
+        if (agentStatusDisplay) {
+            agentStatusDisplay.innerHTML = this.renderAgentStatus(agent);
+        }
+
+        if (quotaMonitor) {
+            quotaMonitor.innerHTML = this.renderQuotaMonitor(agent);
+            // 檢查配額警告
+            this.checkQuotaWarnings(agent);
+        }
+
+        if (modelStatus) {
+            modelStatus.innerHTML = this.renderModelStatus(agent);
+        }
+
+        if (window.lucide) {
+            window.lucide.createIcons();
+        }
+    }
+
+    /**
+     * 更新日誌
+     */
+    updateLogs() {
+        const logsContainer = document.getElementById('recent-logs');
+        if (!logsContainer) return;
+
+        const logs = StateManager.get('logs', []);
+        logsContainer.innerHTML = this.renderRecentLogs(logs);
+    }
+
+    /**
+     * 檢查配額警告
+     */
+    checkQuotaWarnings(agent) {
+        const quotaRemaining = agent.quotaRemaining ?? 1;
+        const percentage = Math.round(quotaRemaining * 100);
+
+        if (percentage < 10) {
+            EventBus.emit(Events.NOTIFICATION_SHOW, {
+                type: 'error',
+                message: `⚠️ 配額嚴重不足！僅剩 ${percentage}%`,
+                persistent: true
+            });
+        } else if (percentage < 20) {
+            EventBus.emit(Events.NOTIFICATION_SHOW, {
+                type: 'warning',
+                message: `配額不足警告：剩餘 ${percentage}%`,
+                duration: 5000
+            });
+        }
     }
 
     destroy() {

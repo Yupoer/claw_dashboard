@@ -1,43 +1,33 @@
 /**
- * ApiClient - 統一 API 接口層
+ * ApiClient - Firebase Realtime Database 接口層
  * 
- * 這是 OpenClaw 需要實現的接口。目前使用 MockDataProvider 提供測試數據。
- * 當 OpenClaw 準備接入時，只需替換這個文件的實現即可。
- * 
- * @example
- * // 獲取 Agent 狀態
- * const status = await ApiClient.getAgentStatus();
- * 
- * // 獲取任務列表
- * const tasks = await ApiClient.getTasks({ status: 'pending' });
+ * 使用 Firebase Realtime Database 進行實時數據同步。
+ * 實現 Dead Man's Switch (心跳檢測) 機制。
  */
 
-import MockDataProvider from './MockDataProvider.js';
 import EventBus, { Events } from '../core/EventBus.js';
 import StateManager from '../core/StateManager.js';
 
 /**
  * API 配置
- * OpenClaw 可以修改此配置以連接真實後端
  */
 const API_CONFIG = {
-    // 設為 true 使用真實 API，false 使用 Mock 數據
-    useMockData: true,
+    // 心跳超時時間（毫秒）- 60秒無心跳視為離線
+    heartbeatTimeout: 60000,
 
-    // 真實 API 基礎 URL（當 useMockData 為 false 時使用）
-    baseUrl: '',
+    // 日誌數量限制
+    logsLimit: 200,
 
-    // 請求超時時間（毫秒）
-    timeout: 10000,
-
-    // 自動刷新間隔（毫秒）
-    refreshInterval: 30000
+    // 心跳檢查間隔（毫秒）
+    heartbeatCheckInterval: 5000
 };
 
 class ApiClientClass {
     constructor() {
         this.config = API_CONFIG;
-        this.refreshTimers = new Map();
+        this.unsubscribers = [];
+        this.heartbeatChecker = null;
+        this.isInitialized = false;
     }
 
     /**
@@ -46,358 +36,273 @@ class ApiClientClass {
      */
     init(config = {}) {
         Object.assign(this.config, config);
-        console.log('ApiClient: Initialized with config', this.config);
+        console.log('ApiClient: Initializing with Firebase...');
 
-        if (this.config.refreshInterval > 0) {
-            this.startAutoRefresh();
-        }
-    }
-
-    /**
-     * 啟動自動刷新
-     */
-    startAutoRefresh() {
-        this.stopAutoRefresh();
-
-        const timer = setInterval(() => {
-            this.refreshAll();
-        }, this.config.refreshInterval);
-
-        this.refreshTimers.set('main', timer);
-        console.log(`ApiClient: Auto-refresh started (${this.config.refreshInterval}ms)`);
-    }
-
-    /**
-     * 停止自動刷新
-     */
-    stopAutoRefresh() {
-        for (const timer of this.refreshTimers.values()) {
-            clearInterval(timer);
-        }
-        this.refreshTimers.clear();
-    }
-
-    /**
-     * 刷新所有數據
-     */
-    async refreshAll() {
-        try {
-            const [status, tasks, balance, models, learning] = await Promise.all([
-                this.getAgentStatus(),
-                this.getTasks(),
-                this.getAPIBalance(),
-                this.getModelInfo(),
-                this.getLearningItems()
-            ]);
-
-            StateManager.batchUpdate({
-                'agent': status,
-                'tasks.completed': tasks.filter(t => t.status === 'completed'),
-                'tasks.pending': tasks.filter(t => t.status === 'pending'),
-                'tasks.inProgress': tasks.filter(t => t.status === 'in-progress'),
-                'api.balances': balance,
-                'api.lastUpdated': new Date().toISOString(),
-                'models': models,
-                'learning.items': learning
-            });
-
-            EventBus.emit(Events.DATA_REFRESH, { timestamp: Date.now() });
-        } catch (error) {
-            console.error('ApiClient: Refresh failed', error);
-        }
-    }
-
-    // ==================== Agent API ====================
-
-    /**
-     * 獲取 Agent 狀態
-     * @returns {Promise<Object>}
-     * 
-     * @typedef {Object} AgentStatus
-     * @property {string} name - Agent 名稱
-     * @property {string|null} avatar - 頭像 URL
-     * @property {'working'|'idle'} status - 工作狀態
-     * @property {Object|null} currentTask - 當前任務
-     */
-    async getAgentStatus() {
-        if (this.config.useMockData) {
-            return MockDataProvider.getAgentStatus();
-        }
-        return this._request('GET', '/agent/status');
-    }
-
-    /**
-     * 更新 Agent 狀態
-     * @param {Partial<AgentStatus>} data - 更新數據
-     * @returns {Promise<Object>}
-     */
-    async updateAgentStatus(data) {
-        if (this.config.useMockData) {
-            return MockDataProvider.updateAgentStatus(data);
-        }
-        return this._request('PATCH', '/agent/status', data);
-    }
-
-    // ==================== Tasks API ====================
-
-    /**
-     * 獲取任務列表
-     * @param {Object} [filter] - 過濾條件
-     * @param {string} [filter.status] - 狀態過濾
-     * @param {string} [filter.priority] - 優先級過濾
-     * @returns {Promise<Array>}
-     * 
-     * @typedef {Object} Task
-     * @property {string} id - 任務 ID
-     * @property {string} title - 任務標題
-     * @property {string} description - 任務描述
-     * @property {'completed'|'pending'|'in-progress'} status - 狀態
-     * @property {'high'|'medium'|'low'} priority - 優先級
-     * @property {string} [completedAt] - 完成時間
-     * @property {string} [dueDate] - 截止日期
-     * @property {string[]} tags - 標籤
-     */
-    async getTasks(filter = {}) {
-        if (this.config.useMockData) {
-            return MockDataProvider.getTasks(filter);
-        }
-        return this._request('GET', '/tasks', null, filter);
-    }
-
-    /**
-     * 獲取單個任務詳情
-     * @param {string} taskId - 任務 ID
-     * @returns {Promise<Object>}
-     */
-    async getTask(taskId) {
-        if (this.config.useMockData) {
-            return MockDataProvider.getTask(taskId);
-        }
-        return this._request('GET', `/tasks/${taskId}`);
-    }
-
-    /**
-     * 創建任務
-     * @param {Object} data - 任務數據
-     * @returns {Promise<Object>}
-     */
-    async createTask(data) {
-        if (this.config.useMockData) {
-            return MockDataProvider.createTask(data);
-        }
-        return this._request('POST', '/tasks', data);
-    }
-
-    /**
-     * 更新任務
-     * @param {string} taskId - 任務 ID
-     * @param {Object} data - 更新數據
-     * @returns {Promise<Object>}
-     */
-    async updateTask(taskId, data) {
-        if (this.config.useMockData) {
-            return MockDataProvider.updateTask(taskId, data);
-        }
-        return this._request('PATCH', `/tasks/${taskId}`, data);
-    }
-
-    /**
-     * 刪除任務
-     * @param {string} taskId - 任務 ID
-     * @returns {Promise<void>}
-     */
-    async deleteTask(taskId) {
-        if (this.config.useMockData) {
-            return MockDataProvider.deleteTask(taskId);
-        }
-        return this._request('DELETE', `/tasks/${taskId}`);
-    }
-
-    /**
-     * 標記任務完成
-     * @param {string} taskId - 任務 ID
-     * @returns {Promise<Object>}
-     */
-    async completeTask(taskId) {
-        return this.updateTask(taskId, {
-            status: 'completed',
-            completedAt: new Date().toISOString()
+        // 等待 Firebase 初始化完成
+        this.waitForFirebase().then(() => {
+            this.startListeners();
+            this.startHeartbeatChecker();
+            this.isInitialized = true;
+            console.log('ApiClient: Firebase listeners attached');
+        }).catch(error => {
+            console.error('ApiClient: Firebase initialization failed', error);
         });
     }
 
-    // ==================== API Balance ====================
-
     /**
-     * 獲取 API 餘額
-     * @returns {Promise<Array>}
-     * 
-     * @typedef {Object} APIBalance
-     * @property {string} provider - 提供商名稱
-     * @property {number} remaining - 剩餘額度（美元）
-     * @property {number} total - 總額度
-     * @property {number} estimatedDaysLeft - 預估可用天數
-     * @property {string} lastUpdated - 最後更新時間
+     * 等待 Firebase 準備好
      */
-    async getAPIBalance() {
-        if (this.config.useMockData) {
-            return MockDataProvider.getAPIBalance();
-        }
-        return this._request('GET', '/api/balance');
-    }
+    waitForFirebase() {
+        return new Promise((resolve, reject) => {
+            let attempts = 0;
+            const maxAttempts = 50; // 5秒超時
 
-    /**
-     * 更新 API 餘額
-     * @param {string} provider - 提供商
-     * @param {Object} data - 餘額數據
-     * @returns {Promise<Object>}
-     */
-    async updateAPIBalance(provider, data) {
-        if (this.config.useMockData) {
-            return MockDataProvider.updateAPIBalance(provider, data);
-        }
-        return this._request('PATCH', `/api/balance/${provider}`, data);
-    }
-
-    // ==================== Models API ====================
-
-    /**
-     * 獲取模型資訊
-     * @returns {Promise<Object>}
-     * 
-     * @typedef {Object} ModelInfo
-     * @property {Object} current - 當前使用模型
-     * @property {Object} fallback - 備用模型
-     */
-    async getModelInfo() {
-        if (this.config.useMockData) {
-            return MockDataProvider.getModelInfo();
-        }
-        return this._request('GET', '/models');
-    }
-
-    /**
-     * 切換模型
-     * @param {string} modelId - 模型 ID
-     * @returns {Promise<Object>}
-     */
-    async switchModel(modelId) {
-        if (this.config.useMockData) {
-            return MockDataProvider.switchModel(modelId);
-        }
-        return this._request('POST', `/models/${modelId}/activate`);
-    }
-
-    // ==================== Learning API ====================
-
-    /**
-     * 獲取學習項目列表
-     * @returns {Promise<Array>}
-     * 
-     * @typedef {Object} LearningItem
-     * @property {string} id - 項目 ID
-     * @property {string} title - 標題
-     * @property {string} description - 描述
-     * @property {1|2|3|4|5} priority - 優先級（1=最高）
-     * @property {string} category - 分類
-     * @property {string} addedAt - 添加時間
-     * @property {'researching'|'planned'|'completed'} status - 狀態
-     */
-    async getLearningItems() {
-        if (this.config.useMockData) {
-            return MockDataProvider.getLearningItems();
-        }
-        return this._request('GET', '/learning');
-    }
-
-    /**
-     * 創建學習項目
-     * @param {Object} data - 項目數據
-     * @returns {Promise<Object>}
-     */
-    async createLearningItem(data) {
-        if (this.config.useMockData) {
-            return MockDataProvider.createLearningItem(data);
-        }
-        return this._request('POST', '/learning', data);
-    }
-
-    /**
-     * 更新學習項目優先級
-     * @param {string} itemId - 項目 ID
-     * @param {number} priority - 新優先級
-     * @returns {Promise<Object>}
-     */
-    async updateLearningPriority(itemId, priority) {
-        if (this.config.useMockData) {
-            return MockDataProvider.updateLearningPriority(itemId, priority);
-        }
-        return this._request('PATCH', `/learning/${itemId}`, { priority });
-    }
-
-    /**
-     * 刪除學習項目
-     * @param {string} itemId - 項目 ID
-     * @returns {Promise<void>}
-     */
-    async deleteLearningItem(itemId) {
-        if (this.config.useMockData) {
-            return MockDataProvider.deleteLearningItem(itemId);
-        }
-        return this._request('DELETE', `/learning/${itemId}`);
-    }
-
-    // ==================== 內部方法 ====================
-
-    /**
-     * 發送 HTTP 請求
-     * @param {string} method - HTTP 方法
-     * @param {string} endpoint - API 端點
-     * @param {Object} [body] - 請求體
-     * @param {Object} [params] - 查詢參數
-     * @returns {Promise<any>}
-     */
-    async _request(method, endpoint, body = null, params = null) {
-        const url = new URL(endpoint, this.config.baseUrl);
-
-        if (params) {
-            Object.entries(params).forEach(([key, value]) => {
-                if (value !== undefined && value !== null) {
-                    url.searchParams.append(key, value);
+            const check = () => {
+                if (window.FirebaseDB) {
+                    resolve();
+                } else if (attempts >= maxAttempts) {
+                    reject(new Error('Firebase initialization timeout'));
+                } else {
+                    attempts++;
+                    setTimeout(check, 100);
                 }
-            });
+            };
+            check();
+        });
+    }
+
+    /**
+     * 啟動所有 Firebase 監聽器
+     */
+    startListeners() {
+        this.listenToAgentStatus();
+        this.listenToLogs();
+    }
+
+    /**
+     * 監聽 Agent 狀態 (/status 節點)
+     */
+    listenToAgentStatus() {
+        const { database, ref, onValue } = window.FirebaseDB;
+        const statusRef = ref(database, 'status');
+
+        const unsubscribe = onValue(statusRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                console.log('ApiClient: Status update received', data);
+
+                // 計算實際狀態（考慮心跳）
+                const displayState = this.calculateDisplayState(data);
+
+                // 更新 StateManager
+                StateManager.batchUpdate({
+                    'agent.status': displayState.state,
+                    'agent.currentTask': data.currentTask ? {
+                        id: 'firebase-task',
+                        title: data.currentTask,
+                        progress: 50,
+                        startedAt: new Date().toISOString()
+                    } : null,
+                    'agent.lastHeartbeat': data.lastHeartbeat,
+                    'agent.model': data.model || 'Unknown',
+                    'agent.tokenUsage': data.tokenUsage || 0,
+                    'agent.quotaRemaining': data.quotaRemaining || 1,
+                    'agent.displayState': displayState.displayText,
+                    'agent.isOnline': displayState.isOnline,
+                    'api.lastUpdated': new Date().toISOString()
+                });
+
+                EventBus.emit(Events.AGENT_STATUS_CHANGED, displayState);
+            }
+        }, (error) => {
+            console.error('ApiClient: Error listening to status', error);
+        });
+
+        this.unsubscribers.push(() => unsubscribe());
+    }
+
+    /**
+     * 監聽日誌 (/logs 節點，限制最後 200 條)
+     */
+    listenToLogs() {
+        const { database, ref, onValue, query, limitToLast } = window.FirebaseDB;
+        const logsRef = query(ref(database, 'logs'), limitToLast(this.config.logsLimit));
+
+        const unsubscribe = onValue(logsRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                // 將對象轉換為數組並按時間排序
+                const logs = Object.entries(data).map(([id, log]) => ({
+                    id,
+                    ...log
+                })).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+                console.log(`ApiClient: Received ${logs.length} logs`);
+
+                StateManager.set('logs', logs);
+                EventBus.emit(Events.DATA_REFRESH, { type: 'logs', count: logs.length });
+            }
+        }, (error) => {
+            console.error('ApiClient: Error listening to logs', error);
+        });
+
+        this.unsubscribers.push(() => unsubscribe());
+    }
+
+    /**
+     * 計算顯示狀態（包含心跳檢測）
+     * @param {Object} data - Firebase 狀態數據
+     * @returns {Object} 顯示狀態
+     */
+    calculateDisplayState(data) {
+        const lastHeartbeat = data.lastHeartbeat || 0;
+        const timeSinceHeartbeat = Date.now() - lastHeartbeat;
+        const isOnline = timeSinceHeartbeat <= this.config.heartbeatTimeout;
+
+        if (!isOnline) {
+            return {
+                state: 'offline',
+                displayText: '🔴 OFFLINE',
+                isOnline: false,
+                timeSinceHeartbeat
+            };
         }
 
-        const options = {
-            method,
-            headers: {
-                'Content-Type': 'application/json'
-            }
+        const state = data.state || 'idle';
+        let displayText = '';
+
+        switch (state) {
+            case 'working':
+                displayText = '🟢 WORKING';
+                break;
+            case 'idle':
+                displayText = '🟡 IDLE';
+                break;
+            case 'error':
+                displayText = '🔴 ERROR';
+                break;
+            default:
+                displayText = `⚪ ${state.toUpperCase()}`;
+        }
+
+        return {
+            state,
+            displayText,
+            isOnline: true,
+            timeSinceHeartbeat
         };
+    }
 
-        if (body) {
-            options.body = JSON.stringify(body);
-        }
+    /**
+     * 啟動心跳檢查器（Dead Man's Switch）
+     */
+    startHeartbeatChecker() {
+        this.stopHeartbeatChecker();
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
-        options.signal = controller.signal;
+        this.heartbeatChecker = setInterval(() => {
+            const lastHeartbeat = StateManager.get('agent.lastHeartbeat', 0);
+            const timeSinceHeartbeat = Date.now() - lastHeartbeat;
 
-        try {
-            const response = await fetch(url.toString(), options);
-            clearTimeout(timeoutId);
-
-            if (!response.ok) {
-                throw new Error(`API Error: ${response.status} ${response.statusText}`);
+            if (timeSinceHeartbeat > this.config.heartbeatTimeout) {
+                const currentState = StateManager.get('agent.displayState');
+                if (currentState !== '🔴 OFFLINE') {
+                    console.warn('ApiClient: Heartbeat timeout - Agent is OFFLINE');
+                    StateManager.batchUpdate({
+                        'agent.status': 'offline',
+                        'agent.displayState': '🔴 OFFLINE',
+                        'agent.isOnline': false
+                    });
+                    EventBus.emit(Events.AGENT_STATUS_CHANGED, {
+                        state: 'offline',
+                        displayText: '🔴 OFFLINE',
+                        isOnline: false
+                    });
+                }
             }
+        }, this.config.heartbeatCheckInterval);
 
-            return response.json();
-        } catch (error) {
-            clearTimeout(timeoutId);
-            if (error.name === 'AbortError') {
-                throw new Error('Request timeout');
-            }
-            throw error;
+        console.log('ApiClient: Heartbeat checker started');
+    }
+
+    /**
+     * 停止心跳檢查器
+     */
+    stopHeartbeatChecker() {
+        if (this.heartbeatChecker) {
+            clearInterval(this.heartbeatChecker);
+            this.heartbeatChecker = null;
         }
+    }
+
+    /**
+     * 啟動自動刷新（保持 API 兼容性）
+     */
+    startAutoRefresh() {
+        // Firebase 使用實時監聽，不需要輪詢
+        console.log('ApiClient: Auto-refresh not needed with Firebase realtime listeners');
+    }
+
+    /**
+     * 停止自動刷新（保持 API 兼容性）
+     */
+    stopAutoRefresh() {
+        // 可選：頁面隱藏時可考慮暫停監聽
+        console.log('ApiClient: Realtime listeners remain active');
+    }
+
+    /**
+     * 刷新所有數據（保持 API 兼容性）
+     * Firebase 使用實時同步，此方法主要用於手動觸發 UI 更新
+     */
+    async refreshAll() {
+        console.log('ApiClient: Manual refresh triggered');
+        EventBus.emit(Events.DATA_REFRESH, { timestamp: Date.now() });
+    }
+
+    /**
+     * 銷毀並清理所有監聽器
+     */
+    destroy() {
+        this.stopHeartbeatChecker();
+        this.unsubscribers.forEach(unsub => unsub());
+        this.unsubscribers = [];
+        this.isInitialized = false;
+        console.log('ApiClient: Destroyed');
+    }
+
+    // ==================== 保持 API 兼容性的佔位方法 ====================
+    // 以下方法保留接口，但在 Firebase 模式下不再使用
+
+    async getAgentStatus() {
+        return {
+            status: StateManager.get('agent.status', 'idle'),
+            currentTask: StateManager.get('agent.currentTask'),
+            lastHeartbeat: StateManager.get('agent.lastHeartbeat')
+        };
+    }
+
+    async getTasks() {
+        return [];
+    }
+
+    async getAPIBalance() {
+        return [];
+    }
+
+    async getModelInfo() {
+        return {
+            current: {
+                id: StateManager.get('agent.model', 'unknown'),
+                name: StateManager.get('agent.model', 'Unknown Model'),
+                provider: 'Google',
+                status: StateManager.get('agent.isOnline') ? 'active' : 'offline'
+            },
+            fallback: null
+        };
+    }
+
+    async getLearningItems() {
+        return [];
     }
 }
 

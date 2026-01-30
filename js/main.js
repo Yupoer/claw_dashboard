@@ -31,10 +31,10 @@ class DashboardApp {
         console.log('🚀 OpenClaw Dashboard initializing...');
 
         try {
-            // 1. 初始化 API 客戶端
+            // 1. 初始化 API 客戶端 (Firebase Realtime Database)
             ApiClient.init({
-                useMockData: true,
-                refreshInterval: 30000
+                heartbeatTimeout: 60000,
+                logsLimit: 200
             });
 
             // 2. 註冊模塊

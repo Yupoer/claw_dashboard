@@ -580,3 +580,148 @@
 .refresh-btn.animate-spin i {
     animation: spin 1s linear infinite;
 }
+
+/* === Status Badge (Firebase) === */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--spacing-2) var(--spacing-3);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    font-family: var(--font-mono);
+}
+
+.status-badge--online {
+    background-color: rgba(34, 197, 94, 0.15);
+    color: var(--color-cta);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.status-badge--offline {
+    background-color: rgba(239, 68, 68, 0.15);
+    color: var(--color-danger);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+/* === Agent Status Display === */
+.agent-status {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+}
+
+.agent-status__indicator {
+    margin-bottom: var(--spacing-2);
+}
+
+.agent-status__task {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-1);
+}
+
+.agent-status__task .task-name {
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    color: var(--color-text);
+}
+
+.agent-status__heartbeat {
+    margin-top: var(--spacing-2);
+    opacity: 0.7;
+}
+
+/* === Quota Monitor === */
+.quota-monitor {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-4);
+}
+
+.quota-monitor__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.quota-monitor__label {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+}
+
+.quota-monitor__value {
+    font-size: var(--text-lg);
+    font-weight: var(--font-bold);
+    color: var(--color-text);
+}
+
+.quota-monitor__bar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+}
+
+.quota-monitor__remaining {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+}
+
+.quota-monitor__percentage {
+    display: flex;
+    justify-content: flex-end;
+    font-size: var(--text-xl);
+    font-weight: var(--font-bold);
+}
+
+/* === Recent Logs === */
+.recent-logs {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.log-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-1);
+    padding: var(--spacing-2);
+    background-color: var(--color-background);
+    border-radius: var(--radius-sm);
+    border-left: 2px solid var(--color-border);
+}
+
+.log-item__time {
+    font-size: var(--text-xs);
+}
+
+.log-item__message {
+    font-size: var(--text-sm);
+    color: var(--color-text);
+    word-break: break-word;
+}
+
+.log-item__more {
+    padding: var(--spacing-2);
+    text-align: center;
+    font-size: var(--text-xs);
+}
+
+/* === Pulse Animation for Offline === */
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.6;
+    }
+}
