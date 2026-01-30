@@ -1,0 +1,314 @@
+/**
+ * OpenClaw Dashboard - Layout
+ * 頁面佈局與響應式設計
+ */
+
+/* === 主容器 === */
+.app-container {
+    min-height: 100vh;
+    display: flex;
+    background-color: var(--color-background);
+}
+
+/* === 三欄佈局 === */
+.layout {
+    display: flex;
+    width: 100%;
+    min-height: 100vh;
+}
+
+/* === 左側邊欄 === */
+.sidebar {
+    width: var(--sidebar-width);
+    min-height: 100vh;
+    background-color: var(--color-background-elevated);
+    border-right: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 50;
+    transition: transform var(--transition-normal), width var(--transition-normal);
+}
+
+.sidebar__header {
+    padding: var(--spacing-6);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.sidebar__content {
+    flex: 1;
+    padding: var(--spacing-4);
+    overflow-y: auto;
+}
+
+.sidebar__footer {
+    padding: var(--spacing-4);
+    border-top: 1px solid var(--color-border);
+}
+
+/* === 中央主區塊 === */
+.main-content {
+    flex: 1;
+    margin-left: var(--sidebar-width);
+    margin-right: var(--info-panel-width);
+    padding: var(--spacing-6);
+    min-height: 100vh;
+    transition: margin var(--transition-normal);
+}
+
+.main-content__header {
+    margin-bottom: var(--spacing-6);
+}
+
+.main-content__grid {
+    display: grid;
+    gap: var(--spacing-6);
+}
+
+/* 模塊區塊 */
+.module-section {
+    background-color: var(--color-background-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    padding: var(--spacing-5);
+}
+
+/* === 右側資訊欄 === */
+.info-panel {
+    width: var(--info-panel-width);
+    min-height: 100vh;
+    background-color: var(--color-background-elevated);
+    border-left: 1px solid var(--color-border);
+    position: fixed;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    z-index: 50;
+    transition: transform var(--transition-normal), width var(--transition-normal);
+}
+
+.info-panel__header {
+    padding: var(--spacing-4) var(--spacing-5);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.info-panel__content {
+    flex: 1;
+    padding: var(--spacing-4);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-4);
+}
+
+/* === 通知容器 === */
+.notifications-container {
+    position: fixed;
+    top: var(--spacing-4);
+    right: var(--spacing-4);
+    z-index: var(--z-notification);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+    max-width: 400px;
+}
+
+.notification {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-3);
+    padding: var(--spacing-4);
+    background-color: var(--color-background-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+}
+
+.notification--success {
+    border-left: 4px solid var(--color-success);
+}
+
+.notification--warning {
+    border-left: 4px solid var(--color-warning);
+}
+
+.notification--error {
+    border-left: 4px solid var(--color-danger);
+}
+
+.notification--info {
+    border-left: 4px solid var(--color-info);
+}
+
+/* === 模態框 === */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: var(--z-modal);
+    padding: var(--spacing-4);
+}
+
+.modal {
+    background-color: var(--color-background-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    max-width: 500px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: var(--shadow-xl);
+}
+
+.modal__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-4) var(--spacing-5);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.modal__title {
+    font-size: var(--text-lg);
+    font-weight: var(--font-semibold);
+}
+
+.modal__body {
+    padding: var(--spacing-5);
+}
+
+.modal__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-3);
+    padding: var(--spacing-4) var(--spacing-5);
+    border-top: 1px solid var(--color-border);
+}
+
+/* === 網格佈局 === */
+.grid {
+    display: grid;
+    gap: var(--spacing-4);
+}
+
+.grid--2 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.grid--3 {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+/* === 響應式設計 === */
+
+/* 平板電腦 */
+@media (max-width: 1024px) {
+    .info-panel {
+        display: none;
+    }
+
+    .main-content {
+        margin-right: 0;
+    }
+
+    .info-panel--visible {
+        display: flex;
+        position: fixed;
+        width: 100%;
+        max-width: 360px;
+        right: 0;
+        box-shadow: var(--shadow-xl);
+    }
+}
+
+/* 手機 */
+@media (max-width: 768px) {
+    .sidebar {
+        transform: translateX(-100%);
+        width: 100%;
+        max-width: 320px;
+    }
+
+    .sidebar--open {
+        transform: translateX(0);
+        box-shadow: var(--shadow-xl);
+    }
+
+    .main-content {
+        margin-left: 0;
+        margin-right: 0;
+        padding: var(--spacing-4);
+    }
+
+    .grid--2,
+    .grid--3 {
+        grid-template-columns: 1fr;
+    }
+
+    .modal {
+        max-width: 100%;
+        margin: var(--spacing-4);
+        max-height: calc(100vh - var(--spacing-8));
+    }
+
+    .notifications-container {
+        left: var(--spacing-4);
+        right: var(--spacing-4);
+        max-width: none;
+    }
+}
+
+/* 小螢幕 */
+@media (max-width: 375px) {
+    .main-content {
+        padding: var(--spacing-3);
+    }
+
+    .module-section {
+        padding: var(--spacing-3);
+    }
+}
+
+/* === 手機選單按鈕 === */
+.mobile-menu-btn {
+    display: none;
+    position: fixed;
+    bottom: var(--spacing-4);
+    left: var(--spacing-4);
+    width: 56px;
+    height: 56px;
+    background-color: var(--color-cta);
+    color: var(--color-background);
+    border-radius: var(--radius-full);
+    box-shadow: var(--shadow-lg);
+    z-index: 100;
+}
+
+@media (max-width: 768px) {
+    .mobile-menu-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+}
+
+/* === 遮罩層 === */
+.overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 40;
+}
+
+.overlay--visible {
+    display: block;
+}

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="OpenClaw AI Agent Dashboard - 監控與管理您的 AI 助手">
+    <title>OpenClaw Dashboard</title>
+
+    <!-- Google Fonts: Fira Code + Fira Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles/variables.css">
+    <link rel="stylesheet" href="styles/base.css">
+    <link rel="stylesheet" href="styles/components.css">
+    <link rel="stylesheet" href="styles/animations.css">
+    <link rel="stylesheet" href="styles/layout.css">
+    <link rel="stylesheet" href="styles/modules.css">
+</head>
+
+<body>
+    <div id="app" class="app-container">
+        <!-- 模塊將由 JavaScript 動態載入 -->
+        <div class="loading-screen">
+            <div class="loading-spinner"></div>
+            <p>載入中...</p>
+        </div>
+    </div>
+
+    <!-- 通知容器 -->
+    <div id="notifications" class="notifications-container"></div>
+
+    <!-- 模態框容器 -->
+    <div id="modal-root"></div>
+
+    <!-- 核心模塊系統 -->
+    <script type="module" src="js/core/EventBus.js"></script>
+    <script type="module" src="js/core/ModuleRegistry.js"></script>
+    <script type="module" src="js/core/StateManager.js"></script>
+
+    <!-- API 層 -->
+    <script type="module" src="js/api/ApiClient.js"></script>
+    <script type="module" src="js/api/MockDataProvider.js"></script>
+
+    <!-- 主程式入口 -->
+    <script type="module" src="js/main.js"></script>
+</body>
+
+</html>
