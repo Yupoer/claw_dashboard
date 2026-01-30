@@ -47,16 +47,8 @@
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
         import { getDatabase, ref, onValue, query, limitToLast } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js';
 
-        // Firebase Configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyAuekdRS3pPZTqhefpzdhf-go9utO6_Bzc",
-            authDomain: "noma-ee53e.firebaseapp.com",
-            databaseURL: "https://noma-ee53e-default-rtdb.firebaseio.com",
-            projectId: "noma-ee53e",
-            storageBucket: "noma-ee53e.firebasestorage.app",
-            messagingSenderId: "951167682309",
-            appId: "1:951167682309:web:9c48c66d7989ed5655596c"
-        };
+        // Import Config (Sensitive)
+        import firebaseConfig from './js/config.js';
 
         // Initialize Firebase
         const firebaseApp = initializeApp(firebaseConfig);

@@ -1,0 +1,8 @@
+# Dependencies
+node_modules/
+.DS_Store
+
+# Secrets
+js/config.js
+.env
+.env.local
