@@ -8,128 +8,92 @@
 // 模擬數據存儲
 const mockStore = {
     agent: {
-        name: 'OpenClaw',
+        name: 'ノーマ (Nōma)',
         avatar: null,
         status: 'working', // 'working' | 'idle'
         currentTask: {
-            id: 'task-001',
-            title: '分析用戶需求文檔',
-            progress: 65,
-            startedAt: new Date(Date.now() - 1800000).toISOString() // 30分鐘前
+            id: 'task-current',
+            title: 'Dashboard 資料對接',
+            progress: 50,
+            startedAt: new Date().toISOString()
         }
     },
 
     tasks: [
         {
             id: 'task-001',
-            title: '分析用戶需求文檔',
-            description: '詳細閱讀並分析客戶提供的需求文檔，提取關鍵功能點和技術要求。',
+            title: '建立 Discord 新頻道',
+            description: '建立狀態、自主學習、餘額監控等專用頻道',
             status: 'in-progress',
             priority: 'high',
             dueDate: new Date(Date.now() + 86400000).toISOString(),
-            tags: ['分析', '文檔', '需求']
+            tags: ['Discord', 'Dev']
         },
         {
             id: 'task-002',
-            title: '實現用戶認證模組',
-            description: '設計並實現安全的用戶登入、註冊和權限管理功能。',
-            status: 'pending',
+            title: 'Dashboard 網頁開發',
+            description: '將 OpenClaw 狀態接入 Dashboard 介面',
+            status: 'in-progress',
             priority: 'high',
             dueDate: new Date(Date.now() + 172800000).toISOString(),
-            tags: ['開發', '安全', 'Auth']
+            tags: ['Web', 'Dashboard']
         },
         {
             id: 'task-003',
-            title: '優化資料庫查詢效能',
-            description: '分析慢查詢並優化索引，提升系統整體響應速度。',
+            title: 'Gmail/Drive 整合',
+            description: '設定 Google Workspace 整合',
             status: 'pending',
             priority: 'medium',
             dueDate: new Date(Date.now() + 259200000).toISOString(),
-            tags: ['優化', '資料庫', '效能']
+            tags: ['Integration', 'Google']
         },
         {
             id: 'task-004',
-            title: '撰寫 API 文檔',
-            description: '為所有公開 API 端點撰寫詳細的技術文檔。',
+            title: '模型自動切換邏輯',
+            description: '實作多模型自動切換與 fallback 機制',
             status: 'pending',
-            priority: 'low',
-            tags: ['文檔', 'API']
+            priority: 'medium',
+            tags: ['AI', 'Core']
         },
         {
             id: 'task-005',
-            title: '完成前端儀表板設計',
-            description: '使用現代化設計語言完成管理後台的 UI 設計。',
+            title: '安裝 ClawdHub CLI',
+            description: '安裝並配置 ClawdHub 工具',
             status: 'completed',
             priority: 'high',
             completedAt: new Date(Date.now() - 3600000).toISOString(),
-            tags: ['設計', 'UI', '前端']
-        },
-        {
-            id: 'task-006',
-            title: '修復登入頁面 Bug',
-            description: '解決用戶反饋的登入頁面在 Safari 瀏覽器上的顯示問題。',
-            status: 'completed',
-            priority: 'high',
-            completedAt: new Date(Date.now() - 7200000).toISOString(),
-            tags: ['Bug', '前端', 'Safari']
-        },
-        {
-            id: 'task-007',
-            title: '配置 CI/CD 管道',
-            description: '設置 GitHub Actions 自動化構建和部署流程。',
-            status: 'completed',
-            priority: 'medium',
-            completedAt: new Date(Date.now() - 14400000).toISOString(),
-            tags: ['DevOps', 'CI/CD']
-        },
-        {
-            id: 'task-008',
-            title: '代碼審查 - PR #42',
-            description: '審查團隊成員提交的用戶模組重構 PR。',
-            status: 'completed',
-            priority: 'medium',
-            completedAt: new Date(Date.now() - 21600000).toISOString(),
-            tags: ['審查', 'PR']
-        },
-        {
-            id: 'task-009',
-            title: '更新依賴套件',
-            description: '將專案依賴更新到最新版本，確保安全性。',
-            status: 'completed',
-            priority: 'low',
-            completedAt: new Date(Date.now() - 43200000).toISOString(),
-            tags: ['維護', '安全']
+            tags: ['Tools', 'Setup']
         }
     ],
 
     apiBalances: [
+        {
+            provider: 'Google',
+            remaining: 999.00, // Placeholder
+            total: 1000,
+            estimatedDaysLeft: 30,
+            lastUpdated: new Date().toISOString()
+        },
         {
             provider: 'Anthropic',
             remaining: 45.50,
             total: 100,
             estimatedDaysLeft: 12,
             lastUpdated: new Date().toISOString()
-        },
-        {
-            provider: 'OpenAI',
-            remaining: 8.25,
-            total: 50,
-            estimatedDaysLeft: 3,
-            lastUpdated: new Date().toISOString()
         }
     ],
 
     models: {
         current: {
-            id: 'claude-3-5-sonnet',
-            name: 'Claude 3.5 Sonnet',
-            provider: 'Anthropic',
+            id: 'gemini-3-pro-high',
+            name: 'Gemini 3 Pro High',
+            provider: 'Google',
             status: 'active'
         },
         fallback: {
-            id: 'gpt-4o',
-            name: 'GPT-4o',
-            provider: 'OpenAI',
+            id: 'claude-3-5-sonnet',
+            name: 'Claude 3.5 Sonnet',
+            provider: 'Anthropic',
             status: 'ready'
         }
     },
@@ -137,48 +101,21 @@ const mockStore = {
     learningItems: [
         {
             id: 'learn-001',
-            title: '優化程式碼重構工作流',
-            description: '研究更高效的程式碼重構策略，減少人工干預需求。',
+            title: '工作流優化',
+            description: '分解任務，避免單次呼叫過多工具導致失敗',
             priority: 1,
-            category: '工作流優化',
+            category: '自主學習',
             addedAt: new Date(Date.now() - 86400000).toISOString(),
             status: 'researching'
         },
         {
             id: 'learn-002',
-            title: '學習 Rust 語言基礎',
-            description: '掌握 Rust 語言的所有權系統和並發編程模型。',
+            title: 'ClawdHub CLI',
+            description: '學習使用新的 CLI 工具進行技能管理',
             priority: 2,
-            category: '技術學習',
+            category: '工具',
             addedAt: new Date(Date.now() - 172800000).toISOString(),
-            status: 'planned'
-        },
-        {
-            id: 'learn-003',
-            title: '研究向量資料庫應用',
-            description: '探索 Pinecone、Weaviate 等向量資料庫在 RAG 中的應用。',
-            priority: 2,
-            category: 'AI/ML',
-            addedAt: new Date(Date.now() - 259200000).toISOString(),
-            status: 'researching'
-        },
-        {
-            id: 'learn-004',
-            title: '改善錯誤處理機制',
-            description: '設計更完善的錯誤捕獲和恢復策略。',
-            priority: 3,
-            category: '工作流優化',
-            addedAt: new Date(Date.now() - 345600000).toISOString(),
-            status: 'planned'
-        },
-        {
-            id: 'learn-005',
-            title: 'Kubernetes 進階操作',
-            description: '學習 K8s 的 Operator 模式和自定義資源管理。',
-            priority: 4,
-            category: 'DevOps',
-            addedAt: new Date(Date.now() - 432000000).toISOString(),
-            status: 'planned'
+            status: 'completed'
         }
     ]
 };
